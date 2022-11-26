@@ -11,8 +11,8 @@ CRGB leds[NUM_LEDS * 2];
 
 CLEDController *ctrl;
 
-#define TOTAL_SEQ 6
-volatile int currSequence = 5;
+#define TOTAL_SEQ 8
+volatile int currSequence = 7;
 
 void setup() {
     delay(1000);
@@ -43,6 +43,12 @@ void initialize() {
         break;
       case 5:
         initCanvas();
+        break;
+      case 6:
+        initTrain2();
+        break;
+      case 7:
+        initTwinkle();
         break;
     }
 }
@@ -77,6 +83,12 @@ void loop() {
       break;
     case 5:
       loopCanvas();
+      break;
+    case 6:
+      loopTrain2();
+      break;
+    case 7:
+      loopTwinkle();
       break;
   }
 }
@@ -131,13 +143,11 @@ void loopTrain() {
   if (trainStart == NUM_LEDS) {
      trainStart = trainEnd - 2;
      hsv2rgb_rainbow(trainColor, leds[trainEnd - 1]);
-//     leds[trainEnd - 1] = CRGB::Red;
      trainEnd = NUM_LEDS - 1;
      trainInc = trainInc * -1;
   } else if (trainStart < 0) {
     trainStart = trainEnd + 2;
     hsv2rgb_rainbow(trainColor, leds[trainEnd + 1]);
-//    leds[trainEnd + 1] = CRGB::Red;
     trainEnd = 0;
     trainInc = trainInc * -1;
   }
@@ -230,7 +240,7 @@ void loopPhaser() {
   if (change == LOW && pedalHi) {
     pedalHi = false;
     phaserFreq = phaserFreq - 10;
-    if (phaserFreq < 0) {
+    if (phaserFreq <= 0) {
       phaserFreq = 200;
     }
   } else if (change == HIGH && !pedalHi) {
@@ -277,8 +287,7 @@ void initCanvas() {
   canvasIdx = 0;
   memset8(leds, 0, NUM_LEDS * 2 * 3);
   memset8(canvasMoving, 0, 600);
-  memset8(canvasStatic, 0, 300);
-  delay(1000);  
+  memset8(canvasStatic, 0, 300); 
 }
 
 void loopCanvas() {
@@ -304,4 +313,75 @@ void loopCanvas() {
   }
   ctrl->show(leds, NUM_LEDS, 150);
   delay(20);
+}
+
+
+int train2Idx = 0;
+int train2Length = 0;
+int train2Inc = 1;
+uint8_t train2Hue1 = random8();
+uint8_t train2Hue2 = random8();
+void initTrain2() {
+  pedalHi = true;
+  train2Idx = 0;
+  train2Length = 0;
+  train2Inc = 1;
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+}
+
+
+void loopTrain2() {
+  if (train2Idx == 0) {
+    train2Inc = 1;
+    leds[NUM_LEDS - 1 - train2Length].setHSV(train2Hue1, 255, 200);
+    leds[NUM_LEDS - 1 + train2Length].setHSV(train2Hue2, 255, 200);
+    train2Length++;
+  } else if (train2Idx == NUM_LEDS) {
+    train2Inc = -1;
+    leds[NUM_LEDS - 1 - train2Length].setHSV(train2Hue1, 255, 200);
+    leds[NUM_LEDS - 1 + train2Length].setHSV(train2Hue2, 255, 200);
+    train2Length++;
+  }
+  ctrl->show(leds + train2Idx, NUM_LEDS, 200);
+  delay(20  );
+  train2Idx+=train2Inc; 
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    pedalHi = false;
+    train2Hue1 = random8();
+    train2Hue2 = random8();
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
+  }
+  if (train2Length == NUM_LEDS - 1) {
+    initTrain2();
+  }
+}
+
+
+uint8_t twinkleHue = 64;
+void initTwinkle() {
+  twinkleHue = 64;
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i].setHSV(twinkleHue, 255, 150);
+  }
+}
+
+void loopTwinkle() {
+  uint8_t v = random8(20, 150);
+  for (int i = 0; i < NUM_LEDS; i++) {
+    uint8_t r = random8();
+    if (r % 20 == 3) {
+      leds[i].setHSV(twinkleHue, 255, v);  
+    }
+  }
+  ctrl->show(leds, NUM_LEDS, 100);
+  delay(200);
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    pedalHi = false;
+    twinkleHue = random8();
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
+  }
 }
