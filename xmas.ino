@@ -11,14 +11,14 @@ CRGB leds[NUM_LEDS * 2];
 
 CLEDController *ctrl;
 
-volatile int currSequence = 2;
+volatile int currSequence = 3;
 
 void setup() {
     delay(1000);
     ctrl = &FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS);
     pinMode(SEQ_SELECT, INPUT_PULLUP);
     pinMode(SEQ_INPUT, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(SEQ_SELECT), seqSelect, FALLING);
+    attachInterrupt(digitalPinToInterrupt(SEQ_SELECT), seqSelect, RISING);
 
     initialize();    
 }
@@ -34,12 +34,21 @@ void initialize() {
       case 2:
         initShooter();
         break;
+      case 3:
+        initPhaser();
+        break;
     }
 }
 
 void seqSelect() {
-  currSequence = (currSequence + 1) % 3;
-  initialize();
+  static unsigned long last_interrupt_time = 0;
+  unsigned long interrupt_time = millis();
+  // If interrupts come faster than 500ms, assume it's a bounce and ignore
+  if (interrupt_time - last_interrupt_time > 500) {
+    currSequence = (currSequence + 1) % 4;
+    initialize();  
+  }
+  last_interrupt_time = interrupt_time;
 }
 
 void loop() {
@@ -52,6 +61,9 @@ void loop() {
       break;
     case 2:
       loopShooter();
+      break;
+    case 3:
+      loopPhaser();
       break;
   }
 }
@@ -162,5 +174,51 @@ void loopShooter() {
     memcpy8(leds, leds+shooterIdx - 1, NUM_LEDS * 3);
     memset8(leds + NUM_LEDS, 0, NUM_LEDS * 3);
     shooterIdx = 0;
+  }
+}
+
+int phaserFreq = 100;
+int phaserClock = 0;
+int phaserIdx = 0;
+const int phaserLength = 25;
+CHSV phaserColor[phaserLength];
+
+void initPhaser() {
+  phaserFreq = 200;
+  phaserClock = 0;
+  phaserIdx = 0;
+  pedalHi = true;
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+
+  for (int i = 0; i < phaserLength; i++) {
+    phaserColor[i] = CHSV(140 + (i * 3), 255, 255 - i * 255/phaserLength);
+  }
+}
+
+void loopPhaser() {
+  if (phaserClock == 0) {
+    int pixIdx = phaserIdx + NUM_LEDS - 11;
+    for (int i = 0; i < phaserLength; i++) {
+      hsv2rgb_rainbow(phaserColor[i], leds[pixIdx++]);
+    }
+  }
+  phaserClock = (phaserClock + 1) % phaserFreq;
+  ctrl->show(leds + phaserIdx, NUM_LEDS, 255);
+  delay(15);
+  phaserIdx++;
+  if (phaserIdx == NUM_LEDS) {
+    memcpy8(leds, leds+phaserIdx - 1, NUM_LEDS * 3);
+    memset8(leds + NUM_LEDS, 0, NUM_LEDS * 3);
+    phaserIdx = 0;
+  }
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    pedalHi = false;
+    phaserFreq = phaserFreq - 10;
+    if (phaserFreq < 0) {
+      phaserFreq = 200;
+    }
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
   }
 }
