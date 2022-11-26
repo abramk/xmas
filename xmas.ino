@@ -11,7 +11,7 @@ CRGB leds[NUM_LEDS * 2];
 
 CLEDController *ctrl;
 
-volatile int currSequence = 1;
+volatile int currSequence = 2;
 
 void setup() {
     delay(1000);
@@ -31,21 +31,27 @@ void initialize() {
       case 1:
         initTrain();
         break;
+      case 2:
+        initShooter();
+        break;
     }
 }
 
 void seqSelect() {
-  currSequence = (currSequence + 1) % 2;
+  currSequence = (currSequence + 1) % 3;
   initialize();
 }
 
 void loop() {
   switch (currSequence) {
     case 0:
-      rainbowLoop();
+      loopRainbow();
       break;
     case 1:
-      train();
+      loopTrain();
+      break;
+    case 2:
+      loopShooter();
       break;
   }
 }
@@ -59,7 +65,7 @@ void initRainbow() {
 
 int rainbowIdx = 0;
 int rainbowBrightness = 255;
-void rainbowLoop() {
+void loopRainbow() {
   ctrl->show(leds + rainbowIdx, NUM_LEDS, rainbowBrightness);
   
   delay(25);
@@ -74,6 +80,7 @@ void rainbowLoop() {
 }
 
 
+
 int trainStart = 1; 
 int trainEnd = 0;
 
@@ -86,7 +93,8 @@ void initTrain() {
 int trainInc = 1;
 int trainColorHue = 0;
 CHSV trainColor = CHSV(trainColorHue, 175, 150);
-void train() {
+
+void loopTrain() {
   hsv2rgb_rainbow(trainColor, leds[trainStart]);
   leds[trainEnd] = CRGB::Black;
   
@@ -115,5 +123,44 @@ void train() {
   if (change == LOW) {
     trainColorHue = (trainColorHue + 1) % 256;
     trainColor = CHSV(trainColorHue, 175, 150);
+  }
+}
+
+
+
+bool pedalHi = true;
+int shooterIdx = 0;
+void initShooter() {
+  shooterIdx = 0;
+  pedalHi = true;
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+}
+
+void loopShooter() {
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    pedalHi = false;
+    uint8_t hue = random8();
+    CHSV color1 = CHSV(hue, 200, 25);
+    CHSV color2 = CHSV(hue, 200, 75);
+    CHSV color3 = CHSV(hue, 200, 125);
+    CHSV color4 = CHSV(hue, 200, 175);
+    CHSV color5 = CHSV(hue, 200, 225);
+    int pixIdx = shooterIdx + NUM_LEDS - 6;
+    hsv2rgb_rainbow(color1, leds[pixIdx++]);
+    hsv2rgb_rainbow(color2, leds[pixIdx++]);
+    hsv2rgb_rainbow(color3, leds[pixIdx++]);
+    hsv2rgb_rainbow(color4, leds[pixIdx++]);
+    hsv2rgb_rainbow(color5, leds[pixIdx++]);
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
+  }
+  ctrl->show(leds + shooterIdx, NUM_LEDS, 200);
+  delay(5);
+  shooterIdx++;
+  if (shooterIdx == NUM_LEDS) {
+    memcpy8(leds, leds+shooterIdx - 1, NUM_LEDS * 3);
+    memset8(leds + NUM_LEDS, 0, NUM_LEDS * 3);
+    shooterIdx = 0;
   }
 }
