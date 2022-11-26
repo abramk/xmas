@@ -11,7 +11,8 @@ CRGB leds[NUM_LEDS * 2];
 
 CLEDController *ctrl;
 
-volatile int currSequence = 3;
+#define TOTAL_SEQ 6
+volatile int currSequence = 5;
 
 void setup() {
     delay(1000);
@@ -37,6 +38,12 @@ void initialize() {
       case 3:
         initPhaser();
         break;
+      case 4:
+        initSine();
+        break;
+      case 5:
+        initCanvas();
+        break;
     }
 }
 
@@ -45,7 +52,7 @@ void seqSelect() {
   unsigned long interrupt_time = millis();
   // If interrupts come faster than 500ms, assume it's a bounce and ignore
   if (interrupt_time - last_interrupt_time > 500) {
-    currSequence = (currSequence + 1) % 4;
+    currSequence = (currSequence + 1) % TOTAL_SEQ;
     initialize();  
   }
   last_interrupt_time = interrupt_time;
@@ -64,6 +71,12 @@ void loop() {
       break;
     case 3:
       loopPhaser();
+      break;
+    case 4:
+      loopSine();
+      break;
+    case 5:
+      loopCanvas();
       break;
   }
 }
@@ -177,6 +190,8 @@ void loopShooter() {
   }
 }
 
+
+
 int phaserFreq = 100;
 int phaserClock = 0;
 int phaserIdx = 0;
@@ -221,4 +236,72 @@ void loopPhaser() {
   } else if (change == HIGH && !pedalHi) {
     pedalHi = true;
   }
+}
+
+
+int sineIdx = 0;
+void initSine() {
+  sineIdx = 0;
+  setSineColor(random8());
+}
+
+void setSineColor(uint8_t hue) {
+  uint8_t theta = 0;
+  for (int i = 0; i < NUM_LEDS * 2; i++) {
+    leds[i].setHSV(hue, 255, sin8(theta));
+    theta+=2;
+  }
+}
+
+void loopSine() {
+  ctrl->show(leds + sineIdx, NUM_LEDS, 200);
+  delay(20);
+  sineIdx++;
+  if (sineIdx == 255) {
+    sineIdx = 0;
+  }
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    pedalHi = false;
+    setSineColor(random8());
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
+  }
+}
+
+uint8_t canvasMoving[600];
+uint8_t canvasStatic[300]; 
+int canvasIdx = 0;
+void initCanvas() {
+  pedalHi = true;
+  canvasIdx = 0;
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+  memset8(canvasMoving, 0, 600);
+  memset8(canvasStatic, 0, 300);
+  delay(1000);  
+}
+
+void loopCanvas() {
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    pedalHi = false;
+    canvasIdx = 0;
+    int idx = NUM_LEDS - 1;
+    canvasMoving[idx--] = 0xFF;
+    canvasMoving[idx--] = 0xFF;
+    canvasMoving[idx--] = 0xFF;
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
+    for (int i = 0; i < NUM_LEDS; i++) {
+      canvasStatic[i] = canvasStatic[i] | canvasMoving[i + canvasIdx];
+    }
+  }
+  if (!pedalHi) {
+    canvasIdx++;
+  }
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i].setRGB(200 & (canvasStatic[i] | canvasMoving[i + canvasIdx]), 0, 0);
+  }
+  ctrl->show(leds, NUM_LEDS, 150);
+  delay(20);
 }
