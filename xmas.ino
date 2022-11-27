@@ -11,8 +11,8 @@ CRGB leds[NUM_LEDS * 2];
 
 CLEDController *ctrl;
 
-#define TOTAL_SEQ 8
-volatile int currSequence = 7;
+#define TOTAL_SEQ 9
+volatile int currSequence = 8;
 
 void setup() {
     delay(1000);
@@ -49,6 +49,9 @@ void initialize() {
         break;
       case 7:
         initTwinkle();
+        break;
+      case 8:
+        initMover();
         break;
     }
 }
@@ -89,6 +92,9 @@ void loop() {
       break;
     case 7:
       loopTwinkle();
+      break;
+    case 8:
+      loopMover();
       break;
   }
 }
@@ -353,7 +359,7 @@ void loopTrain2() {
   } else if (change == HIGH && !pedalHi) {
     pedalHi = true;
   }
-  if (train2Length == NUM_LEDS - 1) {
+  if (train2Length == NUM_LEDS/2 - 1) {
     initTrain2();
   }
 }
@@ -383,5 +389,28 @@ void loopTwinkle() {
     twinkleHue = random8();
   } else if (change == HIGH && !pedalHi) {
     pedalHi = true;
+  }
+}
+
+
+int moveIdx = 0;
+uint8_t moveV = 150;
+void initMover() {
+  moveIdx = 0;
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+}
+
+void loopMover() {
+  leds[moveIdx].setHSV(64, 255, moveV);
+  ctrl->show(leds, NUM_LEDS, 200);
+  moveIdx++;
+  delay(50);
+  if (moveIdx == NUM_LEDS) {
+    moveIdx = 0;
+    if (moveV == 150) {
+      moveV = 0;
+    } else {
+      moveV = 150;
+    }
   }
 }
