@@ -11,8 +11,8 @@ CRGB leds[NUM_LEDS * 2];
 
 CLEDController *ctrl;
 
-#define TOTAL_SEQ 9
-volatile int currSequence = 8;
+#define TOTAL_SEQ 10
+volatile int currSequence = 9;
 
 void setup() {
     delay(1000);
@@ -52,6 +52,9 @@ void initialize() {
         break;
       case 8:
         initMover();
+        break;
+      case 9:
+        initDrops();
         break;
     }
 }
@@ -95,6 +98,9 @@ void loop() {
       break;
     case 8:
       loopMover();
+      break;
+    case 9:
+      loopDrops();
       break;
   }
 }
@@ -349,7 +355,7 @@ void loopTrain2() {
     train2Length++;
   }
   ctrl->show(leds + train2Idx, NUM_LEDS, 200);
-  delay(20  );
+  delay(5);
   train2Idx+=train2Inc; 
   int change = digitalRead(SEQ_INPUT);
   if (change == LOW && pedalHi) {
@@ -404,7 +410,7 @@ void loopMover() {
   leds[moveIdx].setHSV(64, 255, moveV);
   ctrl->show(leds, NUM_LEDS, 200);
   moveIdx++;
-  delay(50);
+  delay(10);
   if (moveIdx == NUM_LEDS) {
     moveIdx = 0;
     if (moveV == 150) {
@@ -413,4 +419,60 @@ void loopMover() {
       moveV = 150;
     }
   }
+}
+
+
+
+int dropData[12][9] = {
+  {0, 61, 113, 156, 200, 239, 268, 288, 299},
+  {4, 65, 117, 160, 203, 241, 270, 289, 299},
+  {10, 70, 120, 163, 206, 244, 271, 290, 299},
+  {15, 74, 124, 167, 210, 246, 273, 291, 299},
+  {21, 79, 127, 171, 213, 249, 275, 292, 299},
+  {25, 83, 131, 174, 216, 251, 276, 293, 299},
+  {30, 88, 135, 178, 219, 253, 278, 293, 299},
+  {36, 82, 138, 182, 223, 256, 280, 294, 299},
+  {41, 96, 142, 185, 226, 258, 281, 295, 299},
+  {46, 101, 145, 189, 229, 261, 283, 296, 299},
+  {52, 105, 149, 193, 232, 263, 284, 297, 299},
+  {56, 110, 153, 196, 236, 266, 286, 298, 299},
+};
+
+bool activeDrops[10];
+int dropDepth[10];
+
+void initDrops() {
+  for (int i = 0; i < 10; i++) {
+    activeDrops[i] = false;
+    dropDepth[i] = 0;
+  }
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+}
+
+void loopDrops() {
+  uint8_t trig = random8();
+  if (trig % 3 == 0) {
+    int i = random8(0, 12);
+    if (activeDrops[i] == false) {
+      activeDrops[i] = true;
+      dropDepth[i] = -1;
+    }
+  }
+  for (int i = 0; i < 12; i++) {
+    if (activeDrops[i]) {
+      dropDepth[i]++;
+      if (dropDepth[i] == 18) {
+        activeDrops[i] = false;
+      }
+    }
+    if (activeDrops[i]) {
+      for (int j = dropDepth[i] - 9; j <= dropDepth[i]; j++) {
+        if (j >= 0 && j < 9) {
+          leds[dropData[i][8-j]].setHSV(16+(j * 3), 255, 255 - (dropDepth[i] - j) * 255 / 9);
+        }
+      }
+    }
+  }
+  ctrl->show(leds, NUM_LEDS, 200);
+  delay(50);
 }
