@@ -11,8 +11,8 @@ CRGB leds[NUM_LEDS * 2];
 
 CLEDController *ctrl;
 
-#define TOTAL_SEQ 10
-volatile int currSequence = 9;
+#define TOTAL_SEQ 12
+volatile int currSequence = 11;
 
 void setup() {
     delay(1000);
@@ -55,6 +55,12 @@ void initialize() {
         break;
       case 9:
         initDrops();
+        break;
+      case 10:
+        initCircles();
+        break;
+      case 11:
+        initFillCircles();
         break;
     }
 }
@@ -101,6 +107,12 @@ void loop() {
       break;
     case 9:
       loopDrops();
+      break;
+    case 10:
+      loopCircles();
+      break;
+    case 11:
+      loopFillCircles();
       break;
   }
 }
@@ -475,4 +487,71 @@ void loopDrops() {
   }
   ctrl->show(leds, NUM_LEDS, 200);
   delay(50);
+}
+
+
+int circleStarts[9] = {0, 61, 114, 157, 201, 240, 269, 289, 299};
+int circleEnds[9] = {60, 113, 156, 200, 239, 268, 288, 298, 299};
+int circleIdx = 0;
+int circleHue = random8();
+void initCircles() {
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+  circleIdx = 0;
+}
+
+void loopCircles() {
+  if (circleIdx - 1 >= 0) {
+    for (int i = circleStarts[circleIdx - 1]; i <= circleEnds[circleIdx - 1]; i++) {
+      leds[i] = CRGB::Black;
+    }
+  }
+  if (circleIdx < 9) {
+    for (int i = circleStarts[circleIdx]; i <= circleEnds[circleIdx]; i++) {
+      leds[i].setHSV(circleHue, 255, 200);
+    }
+  }
+  ctrl->show(leds, NUM_LEDS, 200);
+  delay(100);
+  circleIdx++;
+  if (circleIdx == 9) {
+    circleIdx = 0;
+  }
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    pedalHi = false;
+    circleHue = random8();
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
+  }
+}
+
+uint8_t circleV = 200;
+void initFillCircles() {
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+  circleIdx = 0;
+  circleV = 200;
+}
+
+void loopFillCircles() {
+  for (int i = circleStarts[circleIdx]; i <= circleEnds[circleIdx]; i++) {
+    leds[i].setHSV(circleHue, 255, circleV);
+  }
+  ctrl->show(leds, NUM_LEDS, 200);
+  delay(100);
+  circleIdx++;
+  if (circleIdx == 9) {
+    circleIdx = 0;
+    if (circleV == 0) {
+      circleV = 200;
+    } else {
+      circleV = 0;
+    }
+  }
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    pedalHi = false;
+    circleHue = random8();
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
+  }
 }
