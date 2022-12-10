@@ -11,15 +11,14 @@ CRGB leds[NUM_LEDS * 2];
 
 CLEDController *ctrl;
 
-#define TOTAL_SEQ 12
-volatile int currSequence = 11;
+#define TOTAL_SEQ 13
+volatile int currSequence = 12;
 
 void setup() {
     delay(1000);
     ctrl = &FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS);
     pinMode(SEQ_SELECT, INPUT_PULLUP);
     pinMode(SEQ_INPUT, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(SEQ_SELECT), seqSelect, RISING);
 
     initialize();    
 }
@@ -61,6 +60,9 @@ void initialize() {
         break;
       case 11:
         initFillCircles();
+        break;
+      case 12:
+        initConstant();
         break;
     }
 }
@@ -113,6 +115,9 @@ void loop() {
       break;
     case 11:
       loopFillCircles();
+      break;
+    case 12:
+      loopConstant();
       break;
   }
 }
@@ -553,5 +558,31 @@ void loopFillCircles() {
     circleHue = random8();
   } else if (change == HIGH && !pedalHi) {
     pedalHi = true;
+  }
+}
+
+int constantCount = 0;
+void initConstant() {
+  constantCount = 0;
+  memset8(leds, 0, NUM_LEDS * 2 * 3);
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i].setHSV(HUE_YELLOW - 20, 200, 150);
+  }
+  detachInterrupt(digitalPinToInterrupt(SEQ_SELECT));
+}
+
+void loopConstant() {
+  ctrl->show(leds, NUM_LEDS, 200);
+  delay(100);
+  int change = digitalRead(SEQ_INPUT);
+  if (change == LOW && pedalHi) {
+    constantCount++;
+    circleHue = random8();
+  } else if (change == HIGH && !pedalHi) {
+    pedalHi = true;
+  }
+  if (constantCount == 3) {
+    constantCount = 0;
+    attachInterrupt(digitalPinToInterrupt(SEQ_SELECT), seqSelect, RISING);
   }
 }
